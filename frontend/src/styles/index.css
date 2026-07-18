@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    height: 100%;
+    background-color: #0A0E1A;
+    color: #E2E8F0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0F1629;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1E2D4F;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4A7FA5;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-navy-800/80 backdrop-blur-sm border border-white/5 rounded-xl;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-synapse-blue/20 hover:bg-synapse-blue/30 border border-synapse-blue/40 
+           text-synapse-blue rounded-lg transition-all duration-200 text-sm font-medium;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 hover:bg-white/5 border border-transparent hover:border-white/10 
+           rounded-lg transition-all duration-200 text-sm;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2.5 bg-navy-700 border border-white/10 rounded-lg 
+           text-sm placeholder-white/30 focus:outline-none focus:border-synapse-blue/50
+           transition-colors duration-200;
+  }
+
+  .node-key-paper {
+    filter: drop-shadow(0 0 8px #F5C842) drop-shadow(0 0 20px #F5C84260);
+  }
+}

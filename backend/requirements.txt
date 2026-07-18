@@ -1,0 +1,35 @@
+# 웹 프레임워크
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+websockets==12.0
+python-socketio==5.11.3
+
+# 데이터베이스
+sqlalchemy==2.0.30
+asyncpg==0.29.0
+alembic==1.13.1
+neo4j==5.21.0
+qdrant-client==1.9.1
+
+# 캐시 / 큐
+redis==5.0.6
+celery[redis]==5.4.0
+
+# AI / LLM
+openai==1.30.5
+anthropic==0.28.0
+google-generativeai==0.8.3
+
+# PDF 처리
+pymupdf==1.24.5
+
+# 유틸
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+pydantic==2.7.2
+pydantic-settings==2.3.0
+python-dotenv==1.0.1
+httpx==0.27.0
+tenacity==8.3.0
+structlog==24.2.0
