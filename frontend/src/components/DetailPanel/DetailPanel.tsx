@@ -10,12 +10,40 @@ export default function DetailPanel({ workspaceId }: Props) {
   const { selectedNodeId } = useGraphStore()
   const { toggleDetailPanel } = useUIStore()
 
-  const { data: paper } = useQuery({
+  const { data: paper, isLoading } = useQuery({
     queryKey: ['paper', workspaceId, selectedNodeId],
     queryFn: () => papersApi.get(workspaceId, selectedNodeId!),
     select: (res) => res.data.data,
     enabled: !!selectedNodeId,
   })
+
+  // 논문 데이터 로딩 중 — 스켈레톤 표시
+  if (isLoading) return (
+    <div className="h-full glass-panel flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between p-4 border-b border-white/5">
+        <h3 className="text-sm font-semibold">논문 상세</h3>
+      </div>
+      <div className="flex-1 p-4 space-y-4 animate-pulse">
+        <div className="space-y-2">
+          <div className="h-4 bg-white/10 rounded w-full" />
+          <div className="h-4 bg-white/10 rounded w-3/4" />
+          <div className="h-3 bg-white/5 rounded w-1/2 mt-1" />
+        </div>
+        <div className="space-y-2 pt-2">
+          <div className="h-2.5 bg-white/5 rounded w-10" />
+          <div className="h-3 bg-white/5 rounded w-full" />
+          <div className="h-3 bg-white/5 rounded w-full" />
+          <div className="h-3 bg-white/5 rounded w-5/6" />
+          <div className="h-3 bg-white/5 rounded w-2/3" />
+        </div>
+        <div className="flex gap-1 pt-2">
+          <div className="h-5 bg-white/5 rounded-full w-14" />
+          <div className="h-5 bg-white/5 rounded-full w-20" />
+          <div className="h-5 bg-white/5 rounded-full w-16" />
+        </div>
+      </div>
+    </div>
+  )
 
   if (!paper) return (
     <div className="h-full glass-panel flex items-center justify-center text-white/30 text-sm">
