@@ -139,12 +139,13 @@ class IngestionService:
             log.warning("Metadata LLM extraction failed, falling back to heuristics", error=str(e))
 
         if meta:
-            paper.title = meta.get("title") or paper.title
-            paper.authors = meta.get("authors") or []
+            s = self._sanitise
+            paper.title = s(meta.get("title") or "") or paper.title
+            paper.authors = [s(a) for a in (meta.get("authors") or []) if a]
             paper.year = meta.get("year") if isinstance(meta.get("year"), int) else None
-            paper.journal = meta.get("journal")
-            paper.abstract = meta.get("abstract") or ""
-            paper.keywords = meta.get("keywords") or []
+            paper.journal = s(meta.get("journal") or "") or None
+            paper.abstract = s(meta.get("abstract") or "")
+            paper.keywords = [s(k) for k in (meta.get("keywords") or []) if k]
         else:
             # LLM 실패 시 휴리스틱 폴백
             paper.title = paper.title or self._heuristic_title(sections)
@@ -186,7 +187,7 @@ class IngestionService:
             current_section = "body"
 
             for page_num, page in enumerate(doc):
-                text = page.get_text("text")
+                text = self._sanitise(page.get_text("text"))
                 detected_section = self._detect_section(text)
                 if detected_section:
                     current_section = detected_section
@@ -200,6 +201,25 @@ class IngestionService:
         except Exception as e:
             log.warning("PyMuPDF failed, using fallback", error=str(e))
             return [{"section": "body", "page_num": 1, "content": "PDF 파싱 실패"}]
+
+    @staticmethod
+    def _sanitise(text: str) -> str:
+        """PDF 추출 텍스트 정리.
+
+        일부 PDF(특히 수식이 많은 논문)는 NUL 바이트나 서로게이트를 뱉는데,
+        PostgreSQL text 컬럼은 0x00을 저장할 수 없어 인제스천이 실패한다.
+        (asyncpg: invalid byte sequence for encoding "UTF8": 0x00)
+        """
+        if not text:
+            return ""
+        # NUL 및 잔여 제어문자 제거 (탭·개행은 보존)
+        text = text.replace("\x00", "")
+        text = "".join(
+            ch for ch in text
+            if ch in "\t\n\r" or ord(ch) >= 32
+        )
+        # 짝 없는 서로게이트 제거 (UTF-8 인코딩 불가)
+        return text.encode("utf-8", "ignore").decode("utf-8", "ignore")
 
     def _detect_section(self, text: str) -> Optional[str]:
         text_lower = text[:200].lower()
