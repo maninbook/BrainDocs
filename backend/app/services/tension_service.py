@@ -60,36 +60,84 @@ class TensionService:
         if result is None:
             return self._empty(topic)
 
-        # 논문 제목을 DB 값으로 보정 (LLM 환각 방지)
-        for t in result.get("tensions", []):
-            for side in ("claimA", "claimB"):
-                claim = t.get(side) or {}
+        tensions = self._validate(result.get("tensions", []), paper_meta)
+
+        return {
+            "topic": topic or "워크스페이스 전반",
+            "summary": result.get("summary", ""),
+            "tensions": tensions[:max_tensions],
+            "consensus": result.get("consensus", []),
+            "gaps": result.get("gaps", []),
+            "analysisId": str(uuid.uuid4()),
+        }
+
+    def _validate(self, tensions: list, paper_meta: dict) -> list:
+        """LLM 출력 검증 — 논문 간 대립만 남기고, 메타데이터를 DB 값으로 보정"""
+        import re
+        uuid_re = re.compile(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
+
+        valid = []
+        for t in tensions:
+            a, b = t.get("claimA") or {}, t.get("claimB") or {}
+            pa, pb = a.get("paperId"), b.get("paperId")
+
+            # 같은 논문 안의 뉘앙스 차이는 쟁점이 아니다 — 논문 간 대립만 인정
+            if not pa or not pb or pa == pb:
+                log.info("Dropped same-paper tension", issue=str(t.get("issue"))[:60])
+                continue
+
+            for claim in (a, b):
+                # 방법 필드에 새어나온 논문ID 제거
+                method = claim.get("method") or {}
+                for k, v in list(method.items()):
+                    if isinstance(v, str):
+                        cleaned = uuid_re.sub("", v)
+                        cleaned = re.sub(r"\(\s*(for|,)?\s*part\)?", "", cleaned)
+                        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ;,")
+                        # 괄호가 짝이 안 맞으면(잘린 표현) 열린 괄호부터 버린다
+                        if cleaned.count("(") > cleaned.count(")"):
+                            cleaned = cleaned[:cleaned.rfind("(")].strip(" ;,")
+                        method[k] = cleaned or None
+                claim["method"] = method
+
+                # 제목·연도·저자는 DB 값이 진실 (LLM 환각 방지)
                 meta = paper_meta.get(claim.get("paperId"))
                 if meta and meta["title"]:
                     claim["paperTitle"] = meta["title"]
                     claim["year"] = meta["year"]
                     claim["authors"] = meta["authors"][:2]
 
-        return {
-            "topic": topic or "워크스페이스 전반",
-            "summary": result.get("summary", ""),
-            "tensions": result.get("tensions", [])[:max_tensions],
-            "consensus": result.get("consensus", []),
-            "gaps": result.get("gaps", []),
-            "analysisId": str(uuid.uuid4()),
-        }
+            # genuine(방법이 비슷한데 결과 반대)은 정의상 해소 불가
+            if t.get("conflictType") == "genuine":
+                t["resolvable"] = False
+
+            valid.append(t)
+        return valid
 
     async def _collect_chunks(self, workspace_id: str, topic: str | None) -> list[dict]:
         """주제가 있으면 벡터 검색, 없으면 논문별로 고르게 샘플링"""
         if topic:
             try:
                 vec = await self.embedding_svc.embed_query(topic)
-                return await self.embedding_svc.search_similar(
+                hits = await self.embedding_svc.search_similar(
                     query_vector=vec, workspace_id=workspace_id,
-                    top_k=24, score_threshold=0.25)
+                    top_k=60, score_threshold=0.25)
             except Exception as e:
                 log.error("Tension retrieval failed", error=str(e))
                 return []
+
+            # 논문 간 대립을 찾으려면 한 논문이 컨텍스트를 독점하면 안 된다.
+            # 관련도 순서는 지키되 논문당 최대 3청크로 제한해 출처를 넓힌다.
+            per_paper: dict[str, int] = {}
+            spread = []
+            for h in hits:
+                pid = h["paper_id"]
+                if per_paper.get(pid, 0) >= 3:
+                    continue
+                per_paper[pid] = per_paper.get(pid, 0) + 1
+                spread.append(h)
+            return spread[:26]
 
         # 주제 미지정 — 논문마다 대표 청크를 모아 폭넓게 훑는다
         from app.core.qdrant import get_qdrant_client
@@ -200,9 +248,15 @@ class TensionService:
 
 규칙:
 - 최대 {max_tensions}개 쟁점. 억지로 만들지 말고, 진짜 긴장이 있는 것만.
+- **claimA 와 claimB 는 반드시 서로 다른 논문(paperId)에서 나와야 합니다.** 한 논문 안의
+  뉘앙스 차이는 쟁점이 아닙니다. 서로 다른 논문이 같은 물음에 다르게 답하는 경우만 보고하세요.
 - quote 는 반드시 발췌문에 실제로 있는 문장.
-- 방법이 서로 유사한데 결과가 반대면 conflictType 을 "genuine" 으로 하고 resolvable=false.
+- method 필드에는 **사람이 읽을 자연어만** 쓰세요. 논문ID(UUID)를 절대 넣지 마세요.
+  한 주장에 여러 출처가 섞이면 그중 대표 논문 하나만 골라 쓰세요.
+- conflictType 이 "genuine" 이면 resolvable 은 반드시 false 입니다.
+  방법론 차이로 설명되는 충돌(measurement/population/design/analysis/scale)만 resolvable=true.
 - 발췌문이 방법론 정보를 거의 안 담고 있으면 method 필드를 null 로 채우되, 쟁점 자체는 보고하세요.
+- 서로 다른 논문 간의 진짜 대립을 못 찾겠으면 tensions 를 빈 배열로 두세요. 억지 생성 금지.
 """
 
         try:
