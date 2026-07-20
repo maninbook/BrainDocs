@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.database import engine
 from app.core.qdrant import ensure_collection
 from app.core.neo4j import close_neo4j
-from app.api.routes import papers, graph, explore, chat
+from app.api.routes import papers, graph, explore, chat, tensions
 from app.repositories.neo4j_repo import Neo4jRepository
 
 
@@ -127,6 +127,7 @@ app.include_router(papers.router, prefix="/v1")
 app.include_router(graph.router, prefix="/v1")
 app.include_router(explore.router, prefix="/v1")
 app.include_router(chat.router, prefix="/v1")
+app.include_router(tensions.router, prefix="/v1")
 
 # 워크스페이스 라우터 (간단)
 from fastapi import APIRouter

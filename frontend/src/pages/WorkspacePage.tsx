@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Brain, Compass, MessageCircle } from 'lucide-react'
+import { Brain, Compass, MessageCircle, Scale } from 'lucide-react'
 import GraphView from '@/components/GraphView/GraphView'
 import GraphToolbar from '@/components/GraphView/GraphToolbar'
 import Sidebar from '@/components/Sidebar/Sidebar'
@@ -10,6 +10,7 @@ import PropositionInput from '@/components/PropositionExplorer/PropositionInput'
 import BranchTree from '@/components/PropositionExplorer/BranchTree'
 import MindMap from '@/components/PropositionExplorer/MindMap'
 import ChatPanel from '@/components/Chat/ChatPanel'
+import TensionPanel from '@/components/TensionPanel/TensionPanel'
 import { graphApi } from '@/api/graph'
 import { useGraphStore } from '@/stores/graphStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -21,6 +22,7 @@ export default function WorkspacePage() {
   const [exploreResult, setExploreResult] = useState<ExploreResult | null>(null)
   const [showExplorePanel, setShowExplorePanel] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showTensions, setShowTensions] = useState(false)
 
   const { setGraphData, setLoading, selectedNodeId, viewMode, setViewMode } = useGraphStore()
   const { detailPanelOpen, openDetailPanel, closeDetailPanel } = useUIStore()
@@ -111,6 +113,25 @@ export default function WorkspacePage() {
             <MessageCircle size={15} />
             AI 채팅
           </button>
+        )}
+
+        {/* 쟁점 재조정 버튼 */}
+        {!showTensions && (
+          <button
+            onClick={() => setShowTensions(true)}
+            title="논문들이 어긋나는 지점과 그 원인 분석"
+            className="absolute top-16 right-4 z-10 flex items-center gap-2 px-4 py-2 glass-panel
+                       text-synapse-gold border-synapse-gold/25 hover:bg-synapse-gold/10
+                       transition-all text-sm font-medium"
+          >
+            <Scale size={15} />
+            쟁점 재조정
+          </button>
+        )}
+
+        {/* 쟁점 재조정 패널 */}
+        {showTensions && (
+          <TensionPanel workspaceId={workspaceId} onClose={() => setShowTensions(false)} />
         )}
 
         {/* AI 채팅 패널 */}
