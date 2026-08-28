@@ -108,14 +108,6 @@ braindocs/
     └── Chat/                    출처 인용 채팅
 ```
 
-## 알려진 한계와 계획
-
-- 업로드 시 중복 논문을 걸러내지 않습니다. 같은 논문을 두 번 올리면 두 번 들어갑니다
-- 논문 간 유사도 엣지가 아직 단순합니다. 임베딩 기반으로 교체할 예정입니다
-- DOI/arXiv ID로 메타데이터 자동 임포트 (CrossRef API)
-- PDF 뷰어에서 인용 대목 하이라이트
-- 클러스터 감지 (Leiden)
-
 ## 기술 스택
 
 Python · FastAPI · Celery · PostgreSQL · Neo4j · Qdrant · Redis · Docker Compose ·
